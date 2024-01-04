@@ -32,8 +32,7 @@ library;
 
 import 'package:http/http.dart' as http;
 
-/// The fetchPrvFile function is an asynchronous function designed to fetch
-/// profile data from a specified URL [profCardUrl].
+/// A function designed to fetch profile data from a specified URL [profCardUrl].
 /// It takes three parameters: [profCardUrl] (the URL to fetch data from),
 /// [accessToken] (used for authorization), and [dPopToken] (another form
 /// of token used in headers for enhanced security).
@@ -62,5 +61,27 @@ Future<String> fetchPrvFile(
     // then throw an exception.
     //print(profResponse.body);
     throw Exception('Failed to load profile data! Try again in a while.');
+  }
+}
+
+/// A function designed to fetch profile data from a given URL.
+/// [profUrl] is the URL to fetch data from.
+
+Future<String> fetchProfileData(String profUrl) async {
+  final response = await http.get(
+    Uri.parse(profUrl),
+    headers: <String, String>{
+      'Content-Type': 'text/turtle',
+    },
+  );
+
+  if (response.statusCode == 200) {
+    /// If the server did return a 200 OK response,
+    /// then parse the JSON.
+    return response.body;
+  } else {
+    /// If the server did not return a 200 OK response,
+    /// then throw an exception.
+    throw Exception('Failed to load data! Try again in a while.');
   }
 }

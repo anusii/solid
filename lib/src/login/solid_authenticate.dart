@@ -33,6 +33,7 @@ import 'package:fast_rsa/fast_rsa.dart';
 import 'package:flutter/material.dart';
 import 'package:jwt_decoder/jwt_decoder.dart';
 import 'package:solid/src/login/api/rest_api.dart';
+import 'package:solid/src/login/issue_url.dart';
 import 'package:solid_auth/solid_auth.dart';
 
 // Scopes variables used in the authentication process.
@@ -82,4 +83,153 @@ Future<List<dynamic>?> solidAuthenticate(
   } on () {
     return null;
   }
+}
+
+/// The authentication function
+Future<Map> authenticate(
+    Uri issuerUri, List<String> scopes, BuildContext context) async {
+  /// Platform type parameter
+  String platformType;
+
+  /// Re-direct URIs
+  String redirUrl;
+  List redirUriList;
+
+  /// Authentication method
+  String authMethod;
+
+  /// Authentication response
+  Credential authResponse;
+
+  /// Output data from the authentication
+  Map authData;
+
+  /// Check the platform
+  if (currPlatform.isWeb()) {
+    platformType = 'web';
+  } else if (currPlatform.isAppOS()) {
+    platformType = 'mobile';
+  } else {
+    platformType = 'desktop';
+  }
+
+  /// Get issuer metatada
+  Issuer issuer = await Issuer.discover(issuerUri);
+
+  /// Get end point URIs
+  String regEndPoint = issuer.metadata['registration_endpoint'];
+  String tokenEndPoint = issuer.metadata['token_endpoint'];
+  var authMethods = issuer.metadata['token_endpoint_auth_methods_supported'];
+
+  if (authMethods is String) {
+    authMethod = authMethods;
+  } else {
+    if (authMethods.contains('client_secret_basic')) {
+      authMethod = 'client_secret_basic';
+    } else {
+      authMethod = authMethods[1];
+    }
+  }
+
+  if (platformType == 'web') {
+    redirUrl = authManager.getWebUrl();
+    redirUriList = [redirUrl];
+  } else {
+    redirUrl = 'http://localhost:$_port/';
+    redirUriList = ['http://localhost:$_port/'];
+  }
+
+  /// Dynamic registration of the client (our app)
+  var regResponse =
+      await clientDynamicReg(regEndPoint, redirUriList, authMethod);
+
+  /// Decode the registration details
+  var regResJson = jsonDecode(regResponse);
+
+  /// Generating the RSA key pair
+  Map rsaResults = await genRsaKeyPair();
+  var rsaKeyPair = rsaResults['rsa'];
+  var publicKeyJwk = rsaResults['pubKeyJwk'];
+
+  ///Generate DPoP token using the RSA private key
+  String dPopToken =
+      genDpopToken(tokenEndPoint, rsaKeyPair, publicKeyJwk, "POST");
+
+  final String _clientId = regResJson['client_id'];
+  final String _clientSecret = regResJson['client_secret'];
+  var client = Client(issuer, _clientId, clientSecret: _clientSecret);
+
+  if (platformType != 'web') {
+    /// Create a function to open a browser with an url
+    urlLauncher(String url) async {
+      // if (await canLaunch(url)) {
+      //   await launch(url, forceWebView: true, enableJavaScript: true);
+      // } else {
+      //   throw 'Could not launch $url';
+      // }
+
+      if (await canLaunchUrl(Uri.parse(url))) {
+        await launchUrl(Uri.parse(url));
+      } else {
+        throw 'Could not launch $url';
+      }
+    }
+
+    /// create an authenticator
+    var authenticator = oidc_mobile.Authenticator(
+      client,
+      scopes: scopes,
+      port: _port,
+      urlLancher: urlLauncher,
+      redirectUri: Uri.parse(redirUrl),
+      popToken: dPopToken,
+    );
+
+    /// starts the authentication + authorisation process
+    authResponse = await authenticator.authorize();
+
+    /// close the webview when finished
+    /// closing web view function does not work in Windows applications
+    if (platformType == 'mobile') {
+      //closeWebView();
+      closeInAppWebView();
+    }
+  } else {
+    ///create an authenticator
+    var authenticator =
+        authManager.createAuthenticator(client, scopes, dPopToken);
+
+    var oidc = authManager.getOidcWeb();
+    var callbackUri = await oidc.authorizeInteractive(
+        context: context,
+        title: 'authProcess',
+        authorizationUrl: authenticator.flow.authenticationUri.toString(),
+        redirectUrl: redirUrl,
+        popupWidth: 700,
+        popupHeight: 500);
+
+    var regResponse = Uri.parse(callbackUri).queryParameters;
+    authResponse = await authenticator.flow.callback(regResponse);
+  }
+
+  var tokenResponse = await authResponse.getTokenResponse();
+  String? accessToken = tokenResponse.accessToken;
+
+  /// Generate the logout URL
+  final _logoutUrl = authResponse.generateLogoutUrl().toString();
+
+  /// Store authentication data
+  authData = {
+    'client': client,
+    'rsaInfo': rsaResults,
+    'authResponse': authResponse,
+    'tokenResponse': tokenResponse,
+    'accessToken': accessToken,
+    'idToken': tokenResponse.idToken,
+    'refreshToken': tokenResponse.refreshToken,
+    'expiresIn': tokenResponse.expiresIn,
+    'logoutUrl': _logoutUrl
+  };
+
+  return authData;
 }
