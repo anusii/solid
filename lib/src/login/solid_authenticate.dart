@@ -32,9 +32,9 @@ library;
 import 'package:fast_rsa/fast_rsa.dart';
 import 'package:flutter/material.dart';
 import 'package:jwt_decoder/jwt_decoder.dart';
+import 'package:openid_client/openid_client.dart';
 import 'package:solid/src/login/api/rest_api.dart';
 import 'package:solid/src/login/issue_url.dart';
-import 'package:solid_auth/solid_auth.dart';
 
 // Scopes variables used in the authentication process.
 
