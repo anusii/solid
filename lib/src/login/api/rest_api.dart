@@ -31,6 +31,8 @@
 library;
 
 import 'package:http/http.dart' as http;
+import 'dart:async';
+import 'dart:convert';
 
 /// A function designed to fetch profile data from a specified URL [profCardUrl].
 /// It takes three parameters: [profCardUrl] (the URL to fetch data from),
@@ -76,6 +78,41 @@ Future<String> fetchProfileData(String profUrl) async {
   );
 
   if (response.statusCode == 200) {
+    /// If the server did return a 200 OK response,
+    /// then parse the JSON.
+    return response.body;
+  } else {
+    /// If the server did not return a 200 OK response,
+    /// then throw an exception.
+    throw Exception('Failed to load data! Try again in a while.');
+  }
+}
+
+/// Dynamically register the user in the POD server
+Future<String> clientDynamicReg(
+    String regEndPoint, List reidirUrlList, String authMethod) async {
+  final response = await http.post(Uri.parse(regEndPoint),
+      headers: <String, String>{
+        'Accept': '*/*',
+        'Content-Type': 'application/json',
+        'Connection': 'keep-alive',
+        'Accept-Encoding': 'gzip, deflate, br',
+        'Sec-Fetch-Dest': 'empty',
+        'Sec-Fetch-Mode': 'cors',
+        'Sec-Fetch-Site': 'cross-site',
+      },
+      body: json.encode({
+        "application_type": "web",
+        //"client_name": "fluttersolidauth",
+        //"id_token_signed_response_alg": "RS256",
+        "redirect_uris": reidirUrlList,
+        //"subject_type": "pairwise",
+        "token_endpoint_auth_method": authMethod,
+        //"userinfo_encrypted_response_alg": "RSA1_5",
+        //"userinfo_encrypted_response_enc": "A128CBC-HS256",
+      }));
+
+  if (response.statusCode == 201) {
     /// If the server did return a 200 OK response,
     /// then parse the JSON.
     return response.body;

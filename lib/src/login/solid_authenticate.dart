@@ -33,8 +33,10 @@ import 'package:fast_rsa/fast_rsa.dart';
 import 'package:flutter/material.dart';
 import 'package:jwt_decoder/jwt_decoder.dart';
 import 'package:openid_client/openid_client.dart';
+import 'package:solid/src/auth_manager/auth_manager_abstract.dart';
 import 'package:solid/src/login/api/rest_api.dart';
 import 'package:solid/src/login/issue_url.dart';
+import 'package:solid/src/login/platform_info.dart';
 
 // Scopes variables used in the authentication process.
 
@@ -104,6 +106,11 @@ Future<Map> authenticate(
   /// Output data from the authentication
   Map authData;
 
+PlatformInfo currPlatform = PlatformInfo();
+
+AuthManager authManager = AuthManager();
+
+
   /// Check the platform
   if (currPlatform.isWeb()) {
     platformType = 'web';
@@ -117,22 +124,22 @@ Future<Map> authenticate(
   Issuer issuer = await Issuer.discover(issuerUri);
 
   /// Get end point URIs
-  String regEndPoint = issuer.metadata['registration_endpoint'];
-  String tokenEndPoint = issuer.metadata['token_endpoint'];
+  String regEndPoint = issuer.metadata['registration_endpoint'].toString();
+  String tokenEndPoint = issuer.metadata['token_endpoint'].toString();
   var authMethods = issuer.metadata['token_endpoint_auth_methods_supported'];
 
   if (authMethods is String) {
     authMethod = authMethods;
   } else {
-    if (authMethods.contains('client_secret_basic')) {
+    if ((authMethods as List).contains('client_secret_basic')) {
       authMethod = 'client_secret_basic';
     } else {
-      authMethod = authMethods[1];
+      authMethod = authMethods[1].toString();
     }
   }
 
   if (platformType == 'web') {
-    redirUrl = authManager.getWebUrl();
+    redirUrl = authManager.getWebUrl().toString();
     redirUriList = [redirUrl];
   } else {
     redirUrl = 'http://localhost:$_port/';
