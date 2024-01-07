@@ -2,10 +2,10 @@
 import 'dart:html';
 
 // Project imports:
-import 'package:openid_client/openid_client_browser.dart';
-import 'package:openidconnect_web/openidconnect_web.dart';
+import 'package:solid/src/solid_auth/openid/openid_client_browser.dart';
 
 import 'auth_manager_abstract.dart';
+import 'package:openidconnect_web/openidconnect_web.dart';
 
 late Window windowLoc;
 
@@ -27,7 +27,7 @@ class WebAuthManager implements AuthManager {
   Authenticator createAuthenticator(
       Client client, List<String> scopes, String dPopToken) {
     var authenticator =
-        Authenticator(client, scopes: scopes, popToken: dPopToken);
+        new Authenticator(client, scopes: scopes, popToken: dPopToken);
     return authenticator;
   }
 
